@@ -188,6 +188,26 @@ func TestFocusedSystemPromptRejectsNonOperations(t *testing.T) {
 	}
 }
 
+// The reported case end to end: the router focuses on Pod without an action
+// keyword, so the prompt is a focused one rather than the whole catalog.
+func TestFocusedSystemPromptWithoutActionKeyword(t *testing.T) {
+	t.Parallel()
+	prompt, analysis, err := FocusedSystemPrompt(Options{KubernetesVersion: "v1.34"}, "How much resources all the pods are using?")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if analysis.Mode != ContextFocused || analysis.Action != "" {
+		t.Fatalf("analysis = %+v, want focused with no action", analysis)
+	}
+	full, err := SystemPrompt(Options{KubernetesVersion: "v1.34"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(prompt) >= len(full)/4 {
+		t.Fatalf("focused prompt is %d bytes against a %d byte catalog: it was not focused", len(prompt), len(full))
+	}
+}
+
 func TestPromptForIntentRejectsUnknownInput(t *testing.T) {
 	t.Parallel()
 	if _, err := PromptForIntent(Options{KubernetesVersion: "v1.34"}, Intent{Action: ActionCount, ResourceKinds: []string{"Widget"}}); err == nil {
@@ -195,6 +215,29 @@ func TestPromptForIntentRejectsUnknownInput(t *testing.T) {
 	}
 	if _, err := PromptForIntent(Options{KubernetesVersion: "v1.34"}, Intent{Action: ActionCount}); err == nil {
 		t.Fatal("expected empty intent error")
+	}
+	if _, err := PromptForIntent(Options{KubernetesVersion: "v1.34"}, Intent{Action: "browse", ResourceKinds: []string{"Pod"}}); err == nil {
+		t.Fatal("expected unknown action error")
+	}
+}
+
+// A consumer that knows the kinds and not the verb still gets a focused
+// prompt: the kinds are what narrow the catalog, and the prompt simply
+// carries no action hint.
+func TestPromptForIntentAcceptsEmptyAction(t *testing.T) {
+	t.Parallel()
+	prompt, err := PromptForIntent(Options{KubernetesVersion: "v1.34"}, Intent{ResourceKinds: []string{"Pod"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(prompt, "v1 Pod pods") {
+		t.Fatal("prompt omitted Pod metadata")
+	}
+	if strings.Contains(prompt, "action=") {
+		t.Fatal("prompt carried an action hint nobody supplied")
+	}
+	if strings.Contains(prompt, "apps/v1 Deployment deployments") {
+		t.Fatal("prompt was not focused")
 	}
 }
 

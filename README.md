@@ -96,7 +96,7 @@ func promptForQuestion(query string) (string, error) {
 }
 ```
 
-The router uses deterministic resource aliases, action phrases, relationships, and explicit object names. A confident Kubernetes intent receives focused metadata. A plausible Kubernetes question with low confidence receives the full catalog. An explanatory or non-Kubernetes question returns `ErrUnsupportedIntent` so the caller can fail fast.
+The router uses deterministic resource aliases, action phrases, relationships, and explicit object names. A query that names one resource decisively receives focused metadata whether or not it names an action the router recognises — "how much memory are the pods using" focuses on Pod just as "how many pods" does; the action, when found, only adds a hint to the focused prompt. A plausible Kubernetes question that names no resource, or names two with equal weight, receives the full catalog. An explanatory or non-Kubernetes question returns `ErrUnsupportedIntent` so the caller can fail fast.
 
 `AnalyzeIntent` exposes the same analysis without building a prompt when an application needs to make its own routing decision.
 

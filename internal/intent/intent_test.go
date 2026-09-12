@@ -1,6 +1,7 @@
 package intent
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -86,5 +87,50 @@ func TestAnalyzeExplanationFallsBackWithoutAction(t *testing.T) {
 	analysis := Analyze("What is a CRD?", testCatalog())
 	if analysis.Mode != ModeRejected || analysis.Kind != KindNonOperational || analysis.Action != "" {
 		t.Fatalf("analysis = %#v", analysis)
+	}
+}
+
+// Focus is decided by the kind, not the verb. A query that names one
+// resource and no verb the router knows — "how much memory are the pods
+// using" — is about Pod as unambiguously as "how many pods" is; two resources
+// named with equal weight are still ambiguous.
+func TestAnalyzeFocusWithoutAction(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		query         string
+		expectedMode  string
+		expectedKinds []string
+	}{
+		{
+			name:          "one named kind focuses",
+			query:         "How much memory are the pods using?",
+			expectedMode:  ModeFocused,
+			expectedKinds: []string{"Pod"},
+		},
+		{
+			name:          "two equally weighted kinds fall back",
+			query:         "pods and deployments",
+			expectedMode:  ModeFull,
+			expectedKinds: []string{"Deployment"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			analysis := Analyze(tt.query, testCatalog())
+			if analysis.Mode != tt.expectedMode {
+				t.Errorf("Analyze(%q).Mode = %q, want %q", tt.query, analysis.Mode, tt.expectedMode)
+			}
+			if analysis.Action != "" {
+				t.Errorf("Analyze(%q).Action = %q, want none: the router must not invent a verb", tt.query, analysis.Action)
+			}
+			if !slices.Equal(analysis.SelectedKinds, tt.expectedKinds) {
+				t.Errorf("Analyze(%q).SelectedKinds = %v, want %v", tt.query, analysis.SelectedKinds, tt.expectedKinds)
+			}
+		})
 	}
 }

@@ -66,6 +66,8 @@ var ErrUnsupportedIntent = errors.New("unsupported intent")
 
 // PromptForIntent builds a focused prompt from a consumer-provided normalized
 // intent. It validates resource kinds against the selected Kubernetes version.
+// Action may be empty when the consumer knows the kinds but not the verb; the
+// prompt then carries no action hint.
 func PromptForIntent(opts Options, normalized Intent) (string, error) {
 	api, err := generated.ForVersion(opts.KubernetesVersion)
 	if err != nil {
@@ -144,8 +146,11 @@ func buildIntentPrompt(api catalog.Catalog, normalized Intent) (string, error) {
 }
 
 func validateIntent(api catalog.Catalog, normalized Intent) error {
+	// An empty action is a consumer that knows which kinds a query is about
+	// and not which verb; the focused prompt still describes those kinds, and
+	// simply carries no action hint. An unknown action is a mistake.
 	switch normalized.Action {
-	case ActionList, ActionCount, ActionGet, ActionPatch, ActionDelete:
+	case "", ActionList, ActionCount, ActionGet, ActionPatch, ActionDelete:
 	default:
 		return fmt.Errorf("unsupported intent action %q", normalized.Action)
 	}

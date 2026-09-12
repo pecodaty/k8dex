@@ -96,6 +96,22 @@ var kubernetesTerms = []string{
 // Analyze deterministically scores resource aliases, actions, names, and
 // known Kubernetes relationships. Scores are routing confidence, not model
 // probabilities.
+// Scores are deterministic points out of a hundred, not probabilities.
+const (
+	// aliasScore is awarded when the query names a resource.
+	aliasScore = 60
+	// actionBonus is added when the query also names an action the router
+	// recognises. It refines the prompt; it does not decide whether one can
+	// be focused.
+	actionBonus = 15
+	// focusConfidence is the top candidate's score needed to focus: a named
+	// resource, with or without an action.
+	focusConfidence = float64(aliasScore) / 100
+	// focusMargin is the lead the top candidate needs over the next, so two
+	// resources named with equal weight still see the whole catalog.
+	focusMargin = 0.15
+)
+
 func Analyze(query string, api catalog.Catalog) Analysis {
 	normalized := normalize(query)
 	action := detectAction(normalized)
@@ -111,13 +127,13 @@ func Analyze(query string, api catalog.Catalog) Analysis {
 				candidate = &Candidate{Kind: resource.kind}
 				scores[resource.kind] = candidate
 			}
-			candidate.Score = max(candidate.Score, 60)
+			candidate.Score = max(candidate.Score, aliasScore)
 			candidate.Reasons = appendUnique(candidate.Reasons, "resource alias: "+alias)
 		}
 	}
 	for _, candidate := range scores {
 		if action != "" {
-			candidate.Score += 15
+			candidate.Score += actionBonus
 			candidate.Reasons = appendUnique(candidate.Reasons, "action: "+action)
 		}
 	}
@@ -166,7 +182,13 @@ func Analyze(query string, api catalog.Catalog) Analysis {
 		analysis.Mode = ModeRejected
 		return analysis
 	}
-	if analysis.Confidence >= 0.75 && (analysis.Margin >= 0.15 || relation) {
+	// Focus is decided by the kind, not the verb: an action, when found, only
+	// adds a hint line to the focused prompt. Requiring the action bonus here
+	// sent "how much memory are the pods using" to the whole catalog while
+	// "how many pods" was focused.
+	hasNamedResource := analysis.Confidence >= focusConfidence
+	hasDecisiveLead := analysis.Margin >= focusMargin || relation
+	if hasNamedResource && hasDecisiveLead {
 		analysis.Mode = ModeFocused
 	}
 	return analysis
