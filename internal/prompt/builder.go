@@ -13,6 +13,27 @@ func Build(api catalog.Catalog) string {
 	return BuildWithIntent(api, IntentHint{})
 }
 
+// Sorted returns the catalog's resources in prompt order.
+func Sorted(api catalog.Catalog) []catalog.APIResource {
+	resources := slices.Clone(api.Resources)
+	slices.SortFunc(resources, compareResources)
+	return resources
+}
+
+// BuildIndex renders only the kinds of a catalog, one per line, with the
+// instruction to choose among them. It is the first of two prompts for a
+// question that names no kind.
+func BuildIndex(api catalog.Catalog) string {
+	var builder strings.Builder
+	builder.WriteString(indexBase)
+	fmt.Fprintf(&builder, "\nKubernetes version: %s\n", api.Version)
+	builder.WriteString("Kinds:\n")
+	for _, resource := range Sorted(api) {
+		fmt.Fprintf(&builder, "- %s %s %s scope=%s\n", groupVersion(resource), resource.Kind, resource.Resource, scope(resource.Namespaced))
+	}
+	return builder.String()
+}
+
 // IntentHint carries consumer-provided normalized intent into a focused prompt.
 type IntentHint struct {
 	Action     string

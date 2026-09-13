@@ -115,3 +115,13 @@ type ModelResponse struct {
 	Operations []Operation    `json:"operations"`
 	Error      *ResponseError `json:"error"`
 }
+
+// KindEntry is one line of the catalog index: enough to choose a kind, none
+// of the operation detail a focused prompt carries.
+type KindEntry struct {
+	Group      string `json:"group,omitempty"`
+	Version    string `json:"version"`
+	Kind       string `json:"kind"`
+	Resource   string `json:"resource"`
+	Namespaced bool   `json:"namespaced"`
+}

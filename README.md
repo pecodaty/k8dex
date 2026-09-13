@@ -126,6 +126,20 @@ _ = prompt
 
 Use `KnownIntents()` to inspect the built-in intent descriptors when normalizing user input in your own application.
 
+## Choose kinds first when the question names none
+
+A question such as "which resources use image X?" names no kind, so lexical routing falls back to the full catalog, which may not fit a prompt budget. Ask the model to pick kinds from the compact index first, then build a focused prompt from its answer:
+
+```go
+opts := k8dex.Options{KubernetesVersion: "v1.34"}
+index, err := k8dex.KindIndexPrompt(opts) // a few kilobytes: one line per kind
+// Send index and the question to your LLM; it returns {"kinds":["Pod","Deployment"]}.
+prompt, err := k8dex.PromptForIntent(opts, k8dex.Intent{ResourceKinds: picked})
+// PromptForIntent rejects any kind the model invented.
+```
+
+`CatalogIndex()` returns the same index as data (`[]KindEntry`) for consumers that render their own selection prompt.
+
 ## Model response
 
 The model should return JSON only, with an `operations` array and either `error: null` or a structured error:

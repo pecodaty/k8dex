@@ -76,6 +76,37 @@ func PromptForIntent(opts Options, normalized Intent) (string, error) {
 	return buildIntentPrompt(api, normalized)
 }
 
+// CatalogIndex lists every kind of a supported Kubernetes version without
+// its operations, sorted the way prompts are. A consumer whose question names
+// no kind can put this in front of its model, take the kinds it picks, and
+// call PromptForIntent with them: two small prompts instead of one full
+// catalog that may not fit.
+func CatalogIndex(opts Options) ([]KindEntry, error) {
+	api, err := generated.ForVersion(opts.KubernetesVersion)
+	if err != nil {
+		return nil, err
+	}
+	resources := prompt.Sorted(api)
+	entries := make([]KindEntry, 0, len(resources))
+	for _, resource := range resources {
+		entries = append(entries, KindEntry{Group: resource.Group, Version: resource.Version, Kind: resource.Kind,
+			Resource: resource.Resource, Namespaced: resource.Namespaced})
+	}
+	return entries, nil
+}
+
+// KindIndexPrompt renders the catalog index as a deterministic system prompt
+// asking the model to name the kinds a question needs. The model's answer is
+// a JSON object with a "kinds" array of Kind names from the index and nothing
+// else; the consumer validates it through PromptForIntent.
+func KindIndexPrompt(opts Options) (string, error) {
+	api, err := generated.ForVersion(opts.KubernetesVersion)
+	if err != nil {
+		return "", err
+	}
+	return prompt.BuildIndex(api), nil
+}
+
 // KnownIntents returns defensive copies of the built-in intent templates.
 func KnownIntents() []IntentDescriptor {
 	result := make([]IntentDescriptor, len(knownIntents))

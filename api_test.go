@@ -268,3 +268,57 @@ func TestModelResponseJSONContract(t *testing.T) {
 		t.Fatalf("JSON contract = %s", data)
 	}
 }
+
+func TestCatalogIndexListsEveryKindOnce(t *testing.T) {
+	t.Parallel()
+	entries, err := CatalogIndex(Options{KubernetesVersion: "v1.34"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, entry := range entries {
+		key := entry.Group + "/" + entry.Version + "/" + entry.Kind
+		if seen[key] {
+			t.Fatalf("kind listed twice: %s", key)
+		}
+		seen[key] = true
+		if entry.Kind == "" || entry.Resource == "" || entry.Version == "" {
+			t.Fatalf("incomplete entry: %#v", entry)
+		}
+	}
+	if !seen["/v1/Pod"] || !seen["apps/v1/Deployment"] {
+		t.Fatalf("index lacks core kinds: %d entries", len(entries))
+	}
+	if _, err := CatalogIndex(Options{KubernetesVersion: "v1.35"}); err == nil {
+		t.Fatal("unknown version accepted")
+	}
+}
+
+func TestKindIndexPromptIsSmallAndPicksFromTheIndex(t *testing.T) {
+	t.Parallel()
+	opts := Options{KubernetesVersion: "v1.34"}
+	index, err := KindIndexPrompt(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	full, err := SystemPrompt(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(index)*8 > len(full) {
+		t.Fatalf("index prompt (%d bytes) is not much smaller than the full prompt (%d bytes)", len(index), len(full))
+	}
+	for _, want := range []string{`{"kinds":["Pod"]}`, "Kubernetes version: v1.34", "- apps/v1 Deployment deployments scope=namespaced", "- v1 Node nodes scope=cluster"} {
+		if !strings.Contains(index, want) {
+			t.Errorf("index prompt missing %q", want)
+		}
+	}
+	if strings.Contains(index, "subresource:") || strings.Contains(index, "merge-patch") {
+		t.Error("index prompt carries operation detail")
+	}
+	// Whatever the model picks from the index is a kind PromptForIntent accepts.
+	entries, _ := CatalogIndex(opts)
+	if _, err := PromptForIntent(opts, Intent{ResourceKinds: []string{entries[0].Kind}}); err != nil {
+		t.Fatalf("an index kind was refused by PromptForIntent: %v", err)
+	}
+}

@@ -16,3 +16,14 @@ Rules:
 - If the request is ambiguous or unsupported, return no operations and set error to {"code":"ambiguous_request"|"unsupported_request","message":"..."}.
 - A valid path does not imply authorization or operational safety; authorization is external.
 `
+
+const indexBase = `You choose which Kubernetes kinds a request is about.
+Return exactly one JSON object matching this contract:
+{"kinds":["Pod"]}
+
+Rules:
+- Output valid JSON only. Do not output Markdown, code fences, prose, kubectl, or shell commands.
+- Use only Kind names exactly as listed below, at most four, most relevant first.
+- Choose the kinds whose objects would have to be read to answer the request; do not choose kinds the request merely mentions in passing.
+- If the request is not about Kubernetes objects, return {"kinds":[]}.
+`
