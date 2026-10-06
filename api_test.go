@@ -12,14 +12,14 @@ import (
 func TestSupportedVersions(t *testing.T) {
 	t.Parallel()
 	versions := SupportedVersions()
-	if len(versions) != 2 || versions[0] != "v1.33" || versions[1] != "v1.34" {
+	if len(versions) != 5 || versions[0] != "v1.33" || versions[4] != "v1.37" {
 		t.Fatalf("SupportedVersions() = %v", versions)
 	}
 	versions[0] = "changed"
 	if got := SupportedVersions()[0]; got != "v1.33" {
 		t.Fatalf("SupportedVersions returned mutable state: %q", got)
 	}
-	if got := LatestSupportedVersion(); got != "v1.34" {
+	if got := LatestSupportedVersion(); got != "v1.37" {
 		t.Fatalf("LatestSupportedVersion() = %q", got)
 	}
 }
@@ -50,7 +50,7 @@ func TestSystemPromptNormalizesVersion(t *testing.T) {
 
 func TestSystemPromptRejectsUnknownVersion(t *testing.T) {
 	t.Parallel()
-	if _, err := SystemPrompt(Options{KubernetesVersion: "v1.35"}); err == nil || !strings.Contains(err.Error(), "unsupported Kubernetes version") {
+	if _, err := SystemPrompt(Options{KubernetesVersion: "v1.99"}); err == nil || !strings.Contains(err.Error(), "unsupported Kubernetes version") {
 		t.Fatalf("SystemPrompt() error = %v", err)
 	}
 }
@@ -289,7 +289,7 @@ func TestCatalogIndexListsEveryKindOnce(t *testing.T) {
 	if !seen["/v1/Pod"] || !seen["apps/v1/Deployment"] {
 		t.Fatalf("index lacks core kinds: %d entries", len(entries))
 	}
-	if _, err := CatalogIndex(Options{KubernetesVersion: "v1.35"}); err == nil {
+	if _, err := CatalogIndex(Options{KubernetesVersion: "v1.99"}); err == nil {
 		t.Fatal("unknown version accepted")
 	}
 }

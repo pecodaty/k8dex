@@ -21,9 +21,21 @@ var datav1_33 []byte
 //go:embed v1_34.json
 var datav1_34 []byte
 
+//go:embed v1_35.json
+var datav1_35 []byte
+
+//go:embed v1_36.json
+var datav1_36 []byte
+
+//go:embed v1_37.json
+var datav1_37 []byte
+
 var catalogs = map[string][]byte{
 	"v1.33": datav1_33,
 	"v1.34": datav1_34,
+	"v1.35": datav1_35,
+	"v1.36": datav1_36,
+	"v1.37": datav1_37,
 }
 
 // ForVersion returns an independent catalog for a supported minor version.

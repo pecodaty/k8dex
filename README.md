@@ -6,9 +6,14 @@ It generates Kubernetes-version-aware system prompts from authoritative API meta
 
 ## Install
 
+The module requires Go 1.24.4 or newer. After a version tag is published:
+
 ```bash
-go get github.com/pecodaty/k8dex
+go get github.com/pecodaty/k8dex@latest
 ```
+
+For a reproducible dependency, use a specific release tag such as
+`go get github.com/pecodaty/k8dex@v0.1.0` once that tag exists.
 
 ## Basic integration
 
@@ -70,6 +75,7 @@ func main() {
 ```
 
 Validation is local. Your application remains responsible for authorization, execution, and handling Kubernetes responses.
+It checks the response contract, known path shapes, methods, subresources, supported query parameters, PATCH content types, and required top-level request fields. It does not fully validate nested payloads or determine whether an operation is safe for a particular cluster.
 
 ## Use less prompt context
 
@@ -171,7 +177,7 @@ if err := k8dex.ValidateResponse("v1.34", response); err != nil {
 
 ## Kubernetes versions
 
-API metadata is version-aware and the runtime works offline. Normalize and validate the version before building a prompt:
+Committed catalogs currently cover Kubernetes `v1.33`, `v1.34`, `v1.35`, `v1.36`, and `v1.37`. API metadata is version-aware and the runtime works offline. Discover the available versions at runtime:
 
 ```go
 fmt.Println(k8dex.SupportedVersions())
@@ -179,6 +185,20 @@ fmt.Println(k8dex.LatestSupportedVersion())
 ```
 
 Inputs such as `1.34`, `v1.34`, and `v1.34.2` resolve to the supported `v1.34` minor release. Unknown versions return an error.
+
+Compare the kinds served by two supported versions:
+
+```go
+changes, err := k8dex.APIChanges("v1.34", "v1.35")
+if err != nil {
+	log.Fatal(err)
+}
+for _, change := range changes {
+	fmt.Printf("%s %s/%s %s\n", change.Change, change.Group, change.Version, change.Kind)
+}
+```
+
+`APIChanges` reports added and removed group/version/kind combinations. It does not report verb, subresource, or schema changes; see `api-changes/` for generated release reports that include those details.
 
 ## Boundaries
 
@@ -188,4 +208,11 @@ k8dex does not load kubeconfig, discover cluster CRDs, make HTTP requests, perfo
 
 ```bash
 go test ./...
+make verify-generated
 ```
+
+API catalogs are generated from the official Kubernetes OpenAPI document at a release tag. To add or refresh a release, run `make update-apis KUBERNETES_VERSION=v1.37.0`; review the generated catalog, prompt fixture, and `api-changes/` report before committing. The update command needs network access; runtime use does not.
+
+## Releasing
+
+After changes are merged and CI passes, create and push a semantic version tag on the release commit (for example, `v0.1.0`). The tag triggers the [release workflow](.github/workflows/release.yml), which tests and verifies generated files, creates a GitHub Release, and requests the tagged module from the public Go module proxy. Go consumers can then use `go get github.com/pecodaty/k8dex@v0.1.0`. Publishing a new version requires a new tag; never move a published tag.
